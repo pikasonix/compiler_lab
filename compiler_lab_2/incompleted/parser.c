@@ -331,8 +331,8 @@ void compileStatements2(void) {
     case KW_WHILE:
     case KW_FOR:
       missingToken(SB_SEMICOLON, lookAhead->lineNo, lookAhead->colNo);
-      compileStatement();
-      compileStatements2();
+      // compileStatement();
+      // compileStatements2();
       break;
     default:
       break;
@@ -367,12 +367,12 @@ void compileStatement(void) {
   case KW_FOR:
     compileForSt();
     break;
-    // EmptySt needs to check FOLLOW tokens
+  // Xử lý epsilon: TH1 ; ;     TH2 thiếu ; trước END hoặc ELSE
   case SB_SEMICOLON:
   case KW_END:
   case KW_ELSE:
     break;
-    // Error occurs
+  // Error
   default:
     error(ERR_INVALIDSTATEMENT, lookAhead->lineNo, lookAhead->colNo);
     break;
@@ -385,6 +385,7 @@ void compileAssignSt(void) {
   assert("Parsing an assign statement ....");
   if (lookAhead->tokenType == TK_IDENT) {
     eat(TK_IDENT);
+    // Hỗ trợ đọc mảng
     if (lookAhead->tokenType == SB_LSEL) {
         compileIndexes(); 
     }
