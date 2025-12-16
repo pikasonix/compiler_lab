@@ -55,7 +55,7 @@ int compareType(Type* type1, Type* type2) {
   if (type1->typeClass == type2->typeClass) {
     if (type1->typeClass == TP_ARRAY) {
       if (type1->arraySize == type2->arraySize)
-	      return compareType(type1->elementType, type2->elementType);
+	return compareType(type1->elementType, type2->elementType);
       else return 0;
     } else return 1;
   } else return 0;
@@ -145,7 +145,7 @@ Object* createVariableObject(char *name) {
   obj->varAttrs->scope = symtab->currentScope;
   return obj;
 }
-// TODO: giải thích vì sao khởi tạo paramList nhưng không khởi tạo returnType
+
 Object* createFunctionObject(char *name) {
   Object* obj = (Object*) malloc(sizeof(Object));
   strcpy(obj->name, name);
@@ -311,20 +311,6 @@ void enterBlock(Scope* scope) {
 
 void exitBlock(void) {
   symtab->currentScope = symtab->currentScope->outer;
-}
-
-// tìm kiếm Object (bản pro của findObject) theo tên trong phạm vi hiện tại và các phạm vi bao ngoài
-Object* lookupObject(char *name) {
-  Scope* scope = symtab->currentScope;
-  Object* obj;
-
-  while (scope != NULL) {
-    obj = findObject(scope->objList, name);
-    if (obj != NULL)
-      return obj;
-    scope = scope->outer;
-  }
-  return NULL;
 }
 
 void declareObject(Object* obj) {

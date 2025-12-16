@@ -9,6 +9,7 @@
 #include "reader.h"
 #include "scanner.h"
 #include "parser.h"
+#include "semantics.h"
 #include "error.h"
 #include "debug.h"
 
@@ -42,6 +43,7 @@ void compileProgram(void) {
   enterBlock(program->progAttrs->scope);
 
   eat(SB_SEMICOLON);
+
   compileBlock();
   eat(SB_PERIOD);
 
@@ -57,11 +59,16 @@ void compileBlock(void) {
 
     do {
       eat(TK_IDENT);
+      // TODO: Check if a constant identifier is fresh in the block
+
+      // Create a constant object
       constObj = createConstantObject(currentToken->string);
       
       eat(SB_EQ);
+      // Get the constant value
       constValue = compileConstant();
       constObj->constAttrs->value = constValue;
+      // Declare the constant object 
       declareObject(constObj);
       
       eat(SB_SEMICOLON);
@@ -81,11 +88,16 @@ void compileBlock2(void) {
 
     do {
       eat(TK_IDENT);
+      // TODO: Check if a type identifier is fresh in the block
+
+      // create a type object
       typeObj = createTypeObject(currentToken->string);
       
       eat(SB_EQ);
+      // Get the actual type
       actualType = compileType();
       typeObj->typeAttrs->actualType = actualType;
+      // Declare the type object
       declareObject(typeObj);
       
       eat(SB_SEMICOLON);
@@ -105,11 +117,16 @@ void compileBlock3(void) {
 
     do {
       eat(TK_IDENT);
+      // TODO: Check if a variable identifier is fresh in the block
+
+      // Create a variable object      
       varObj = createVariableObject(currentToken->string);
 
       eat(SB_COLON);
+      // Get the variable type
       varType = compileType();
       varObj->varAttrs->type = varType;
+      // Declare the variable object
       declareObject(varObj);
       
       eat(SB_SEMICOLON);
@@ -145,18 +162,25 @@ void compileFuncDecl(void) {
 
   eat(KW_FUNCTION);
   eat(TK_IDENT);
+  // TODO: Check if a function identifier is fresh in the block
+
+  // create the function object
   funcObj = createFunctionObject(currentToken->string);
+  // declare the function object
   declareObject(funcObj);
+  // enter the function's block
   enterBlock(funcObj->funcAttrs->scope);
-  
+  // parse the function's parameters
   compileParams();
   eat(SB_COLON);
+  // get the funtion's return type
   returnType = compileBasicType();
   funcObj->funcAttrs->returnType = returnType;
-  
+
   eat(SB_SEMICOLON);
   compileBlock();
   eat(SB_SEMICOLON);
+  // exit the function block
   exitBlock();
 }
 
@@ -165,15 +189,21 @@ void compileProcDecl(void) {
 
   eat(KW_PROCEDURE);
   eat(TK_IDENT);
-
+  // TODO: Check if a procedure identifier is fresh in the block
+  checkFreshIdent(currentToken->string);
+  // create a procedure object
   procObj = createProcedureObject(currentToken->string);
+  // declare the procedure object
   declareObject(procObj);
+  // enter the procedure's block
   enterBlock(procObj->procAttrs->scope);
-
+  // parse the procedure's parameters
   compileParams();
+
   eat(SB_SEMICOLON);
   compileBlock();
   eat(SB_SEMICOLON);
+  // exit the block
   exitBlock();
 }
 
@@ -188,13 +218,7 @@ ConstantValue* compileUnsignedConstant(void) {
     break;
   case TK_IDENT:
     eat(TK_IDENT);
-
-    obj = lookupObject(currentToken->string);
-    if (obj == NULL)
-      error(ERR_UNDECLARED_CONSTANT, currentToken->lineNo, currentToken->colNo);
-    if (obj->kind != OBJ_CONSTANT)
-      error(ERR_INVALID_CONSTANT, currentToken->lineNo, currentToken->colNo);
-    constValue = duplicateConstantValue(obj->constAttrs->value);
+    // TODO: check if the constant identifier is declared and get its value
 
     break;
   case TK_CHAR:
@@ -219,7 +243,7 @@ ConstantValue* compileConstant(void) {
   case SB_MINUS:
     eat(SB_MINUS);
     constValue = compileConstant2();
-    constValue->intValue = -constValue->intValue;
+    constValue->intValue = - constValue->intValue;
     break;
   case TK_CHAR:
     eat(TK_CHAR);
@@ -243,12 +267,7 @@ ConstantValue* compileConstant2(void) {
     break;
   case TK_IDENT:
     eat(TK_IDENT);
-    obj = lookupObject(currentToken->string);
-    if (obj == NULL)
-      error(ERR_UNDECLARED_CONSTANT, currentToken->lineNo, currentToken->colNo);
-    if (obj->kind != OBJ_CONSTANT)
-      error(ERR_INVALID_CONSTANT, currentToken->lineNo, currentToken->colNo);
-    constValue = duplicateConstantValue(obj->constAttrs->value);
+    // TODO: check if the integer constant identifier is declared and get its value
     break;
   default:
     error(ERR_INVALID_CONSTANT, lookAhead->lineNo, lookAhead->colNo);
@@ -266,7 +285,7 @@ Type* compileType(void) {
   switch (lookAhead->tokenType) {
   case KW_INTEGER: 
     eat(KW_INTEGER);
-    type = makeIntType();
+    type =  makeIntType();
     break;
   case KW_CHAR: 
     eat(KW_CHAR); 
@@ -276,24 +295,17 @@ Type* compileType(void) {
     eat(KW_ARRAY);
     eat(SB_LSEL);
     eat(TK_NUMBER);
+
     arraySize = currentToken->value;
+
     eat(SB_RSEL);
     eat(KW_OF);
-
     elementType = compileType();
     type = makeArrayType(arraySize, elementType);
-
     break;
   case TK_IDENT:
     eat(TK_IDENT);
-
-    obj = lookupObject(currentToken->string);
-    if (obj == NULL)
-      error(ERR_UNDECLARED_TYPE, currentToken->lineNo, currentToken->colNo);
-    if (obj->kind != OBJ_TYPE)
-      error(ERR_INVALID_TYPE, currentToken->lineNo, currentToken->colNo);
-    type = duplicateType(obj->typeAttrs->actualType);
-
+    // TODO: check if the type idntifier is declared and get its actual type
     break;
   default:
     error(ERR_INVALID_TYPE, lookAhead->lineNo, lookAhead->colNo);
@@ -308,15 +320,11 @@ Type* compileBasicType(void) {
   switch (lookAhead->tokenType) {
   case KW_INTEGER: 
     eat(KW_INTEGER); 
-
     type = makeIntType();
-
     break;
   case KW_CHAR: 
     eat(KW_CHAR); 
-
     type = makeCharType();
-
     break;
   default:
     error(ERR_INVALID_BASICTYPE, lookAhead->lineNo, lookAhead->colNo);
@@ -345,37 +353,23 @@ void compileParam(void) {
   switch (lookAhead->tokenType) {
   case TK_IDENT:
     paramKind = PARAM_VALUE;
-
-    eat(TK_IDENT);
-
-    param = createParameterObject(currentToken->string, paramKind, symtab->currentScope->owner);
-
-    eat(SB_COLON);
-
-    type = compileBasicType();
-    param->paramAttrs->type = type;
-    declareObject(param);
-  
     break;
   case KW_VAR:
-    paramKind = PARAM_REFERENCE;
-
     eat(KW_VAR);
-    eat(TK_IDENT);
-
-    param = createParameterObject(currentToken->string, paramKind, symtab->currentScope->owner);
-
-    eat(SB_COLON);
-
-    type = compileBasicType();
-    param->paramAttrs->type = type;
-    declareObject(param);
-
+    paramKind = PARAM_REFERENCE;
     break;
   default:
     error(ERR_INVALID_PARAMETER, lookAhead->lineNo, lookAhead->colNo);
     break;
   }
+
+  eat(TK_IDENT);
+  // TODO: check if the parameter identifier is fresh in the block
+  param = createParameterObject(currentToken->string, paramKind, symtab->currentScope->owner);
+  eat(SB_COLON);
+  type = compileBasicType();
+  param->paramAttrs->type = type;
+  declareObject(param);
 }
 
 void compileStatements(void) {
@@ -419,8 +413,13 @@ void compileStatement(void) {
 }
 
 void compileLValue(void) {
+  Object* var;
+
   eat(TK_IDENT);
-  compileIndexes();
+  // check if the identifier is a function identifier, or a variable identifier, or a parameter  
+  var = checkDeclaredLValueIdent(currentToken->string);
+  if (var->kind == OBJ_VARIABLE)
+    compileIndexes();
 }
 
 void compileAssignSt(void) {
@@ -432,6 +431,7 @@ void compileAssignSt(void) {
 void compileCallSt(void) {
   eat(KW_CALL);
   eat(TK_IDENT);
+  // TODO: check if the identifier is a declared procedure
   compileArguments();
 }
 
@@ -465,10 +465,15 @@ void compileWhileSt(void) {
 void compileForSt(void) {
   eat(KW_FOR);
   eat(TK_IDENT);
+
+  // TODO: check if the identifier is a variable
+
   eat(SB_ASSIGN);
   compileExpression();
+
   eat(KW_TO);
   compileExpression();
+
   eat(KW_DO);
   compileStatement();
 }
@@ -487,7 +492,7 @@ void compileArguments(void) {
       eat(SB_COMMA);
       compileArgument();
     }
-
+    
     eat(SB_RPAR);
     break;
     // Check FOLLOW set 
@@ -518,6 +523,7 @@ void compileArguments(void) {
 
 void compileCondition(void) {
   compileExpression();
+
   switch (lookAhead->tokenType) {
   case SB_EQ:
     eat(SB_EQ);
@@ -641,6 +647,8 @@ void compileTerm2(void) {
 }
 
 void compileFactor(void) {
+  Object* obj;
+
   switch (lookAhead->tokenType) {
   case TK_NUMBER:
     eat(TK_NUMBER);
@@ -650,14 +658,22 @@ void compileFactor(void) {
     break;
   case TK_IDENT:
     eat(TK_IDENT);
-    switch (lookAhead->tokenType) {
-    case SB_LPAR:
-      compileArguments();
+    // check if the identifier is declared
+    obj = checkDeclaredIdent(currentToken->string);
+
+    switch (obj->kind) {
+    case OBJ_CONSTANT:
       break;
-    case SB_LSEL:
+    case OBJ_VARIABLE:
       compileIndexes();
       break;
-    default:
+    case OBJ_PARAMETER:
+      break;
+    case OBJ_FUNCTION:
+      compileArguments();
+      break;
+    default: 
+      error(ERR_INVALID_FACTOR,currentToken->lineNo, currentToken->colNo);
       break;
     }
     break;

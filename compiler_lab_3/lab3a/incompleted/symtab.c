@@ -46,33 +46,75 @@ Type* makeArrayType(int arraySize, Type* elementType) {
 // ---- Xử lý kiểu dữ liệu ----
 // Tạo bản sao cho kiểu dữ liệu: Cấp phát bộ nhớ cho Type mới. Sao chép typeClass. Nếu là mảng (TP_ARRAY), phải sao chép cả arraySize và gọi đệ quy duplicateType cho elementType
 Type* duplicateType(Type* type) {
-  // TODO
+  switch (type->typeClass) {
+    case TP_INT: {
+      return makeIntType();
+    }
+    case TP_CHAR: {
+      return makeCharType();
+    }
+    case TP_ARRAY: {
+      Type* elemType = duplicateType(type->elementType);
+      return makeArrayType(type->arraySize, elemType);
+    }
+    default:
+      return NULL;
+  }
 }
 
 // So sánh 2 kiểu dữ liệu có giống nhau không: So sánh typeClass. Nếu khác nhau -> trả về 0. Nếu giống nhau và là TP_ARRAY, phải so sánh tiếp arraySize và gọi đệ quy so sánh elementType
 int compareType(Type* type1, Type* type2) {
-  // TODO
+  if (type1->typeClass != type2->typeClass) {
+    return 0;
+  }
+  switch (type1->typeClass) {
+    case TP_INT:
+    case TP_CHAR:
+      return 1;
+    case TP_ARRAY:
+      return (type1->arraySize == type2->arraySize) && compareType(type1->elementType, type2->elementType);
+    default:
+      return 0;
+  }
 }
 
 // Giải phóng bộ nhớ kiểu dữ liệu: Nếu là kiểu mảng, phải giải phóng elementType trước. Sau đó giải phóng chính con trỏ type
 void freeType(Type* type) {
-  // TODO
+  if (type->typeClass == TP_ARRAY) {
+    freeType(type->elementType);
+  }
+  free(type);
 }
 
 /******************* Constant utility: quản lý hằng số ******************************/
 // INT
 ConstantValue* makeIntConstant(int i) {
-  // TODO
+  ConstantValue* constValue = (ConstantValue*) malloc(sizeof(ConstantValue));
+  constValue->type = TP_INT;
+  constValue->intValue = i;
+  return constValue;
 }
 
 // CHAR
 ConstantValue* makeCharConstant(char ch) {
-  // TODO
+  ConstantValue* constValue = (ConstantValue*) malloc(sizeof(ConstantValue));
+  constValue->type = TP_CHAR;
+  constValue->charValue = ch;
+  return constValue;
 }
 
 // Tạo bản sao cho hằng số: Cấp phát bộ nhớ cho ConstantValue mới. Sao chép type. Nếu là TP_INT, sao chép intValue; nếu là TP_CHAR, sao chép charValue
 ConstantValue* duplicateConstantValue(ConstantValue* v) {
-  // TODO
+  switch (v->type) {
+    case TP_INT: {
+      return makeIntConstant(v->intValue);
+    }
+    case TP_CHAR: {
+      return makeCharConstant(v->charValue);
+    }
+    default:
+      return NULL;
+  }
 }
 
 /******************* Object utilities: quản lý đối tượng (tạo, giải phóng, tìm kiếm) ******************************/
@@ -99,52 +141,133 @@ Object* createProgramObject(char *programName) {
 
 // Tạo Object - Constant: Cần cấp phát constAttrs
 Object* createConstantObject(char *name) {
-  // TODO
+  Object* constant = (Object*) malloc(sizeof(Object));
+  strcpy(constant->name, name);
+  constant->kind = OBJ_CONSTANT;
+  constant->constAttrs = (ConstantAttributes*) malloc(sizeof(ConstantAttributes));
+  return constant;
 }
 
 // Tạo Object - Type: Cần cấp phát typeAttrs
 Object* createTypeObject(char *name) {
-  // TODO
+  Object* typeObj = (Object*) malloc(sizeof(Object));
+  strcpy(typeObj->name, name);
+  typeObj->kind = OBJ_TYPE;
+  typeObj->typeAttrs = (TypeAttributes*) malloc(sizeof(TypeAttributes));
+  return typeObj;
 }
 
 // Tạo Object - Variable: Cần cấp phát varAttrs
 Object* createVariableObject(char *name) {
-  // TODO
+  Object* variable = (Object*) malloc(sizeof(Object));
+  strcpy(variable->name, name);
+  variable->kind = OBJ_VARIABLE;
+  variable->varAttrs = (VariableAttributes*) malloc(sizeof(VariableAttributes));
+  variable->varAttrs->scope = symtab->currentScope;
+  return variable;
 }
 
 // Tạo Object - Function: Cần cấp phát funcAttrs và tạo scope mới cho hàm (outer scope là phạm vi hiện tại)
 Object* createFunctionObject(char *name) {
-  // TODO
+  Object* function = (Object*) malloc(sizeof(Object));
+  strcpy(function->name, name);
+  function->kind = OBJ_FUNCTION;
+  function->funcAttrs = (FunctionAttributes*) malloc(sizeof(FunctionAttributes));
+  function->funcAttrs->scope = createScope(function, symtab->currentScope);
+  function->funcAttrs->paramList = NULL;
+  // chưa cần khởi tạo luôn returnType vì... (lý do theo //TODO lab3b )
+  function->funcAttrs->returnType = NULL;
+  
+  return function;
 }
 
 // Tạo Object - Procedure: Cần cấp phát procAttrs và tạo scope mới cho thủ tục (outer scope là phạm vi hiện tại)
 Object* createProcedureObject(char *name) {
-  // TODO
+  Object* procedure = (Object*) malloc(sizeof(Object));
+  strcpy(procedure->name, name);
+  procedure->kind = OBJ_PROCEDURE;
+  procedure->procAttrs = (ProcedureAttributes*) malloc(sizeof(ProcedureAttributes));
+  procedure->procAttrs->scope = createScope(procedure, symtab->currentScope);
+  procedure->procAttrs->paramList = NULL;
+  
+  return procedure;
 }
 
 // Tạo Object - Parameter: Cần cấp phát paramAttrs, gán function là owner
 Object* createParameterObject(char *name, enum ParamKind kind, Object* owner) {
-  // TODO
+  Object* parameter = (Object*) malloc(sizeof(Object));
+  strcpy(parameter->name, name);
+  parameter->kind = OBJ_PARAMETER;
+  parameter->paramAttrs = (ParameterAttributes*) malloc(sizeof(ParameterAttributes));
+  parameter->paramAttrs->kind = kind;
+  parameter->paramAttrs->function = owner;
+  
+  return parameter;
 }
 
 // Giải phóng bộ nhớ Object: giải phóng các thuộc tính (constAttrs, varAttrs, typeAttrs, funcAttrs, procAttrs, progAttrs, paramAttrs). Sau đó giải phóng con trỏ obj
 void freeObject(Object* obj) {
-  // TODO
+  switch (obj->kind) {
+    case OBJ_CONSTANT:
+      free(obj->constAttrs->value);
+      free(obj->constAttrs);
+      break;
+    case OBJ_VARIABLE:
+      freeType(obj->varAttrs->type);
+      free(obj->varAttrs);
+      break;
+    case OBJ_TYPE:
+      freeType(obj->typeAttrs->actualType);
+      free(obj->typeAttrs);
+      break;
+    case OBJ_FUNCTION:
+      freeReferenceList(obj->funcAttrs->paramList);
+      freeType(obj->funcAttrs->returnType);
+      freeScope(obj->funcAttrs->scope);
+      free(obj->funcAttrs);
+      break;
+    case OBJ_PROCEDURE:
+      freeReferenceList(obj->procAttrs->paramList);
+      freeScope(obj->procAttrs->scope);
+      free(obj->procAttrs);
+      break;
+    case OBJ_PROGRAM:
+      freeScope(obj->progAttrs->scope);
+      free(obj->progAttrs);
+      break;
+    case OBJ_PARAMETER:
+      freeType(obj->paramAttrs->type);
+      free(obj->paramAttrs);
+      break;
+  }
+  free(obj);
 }
 
 // Giải phóng bộ nhớ Scope: giải phóng Object List. Sau đó giải phóng con trỏ scope
 void freeScope(Scope* scope) {
-  // TODO
+  freeObjectList(scope->objList);
+  free(scope);
 }
 
 // Giải phóng Object List: duyệt qua từng ObjectNode trong objList, gọi freeObject cho từng object, sau đó giải phóng từng ObjectNode
 void freeObjectList(ObjectNode *objList) {
-  // TODO
+  ObjectNode* current = objList;
+  while (current != NULL) {
+    ObjectNode* next = current->next;
+    freeObject(current->object);
+    free(current);
+    current = next;
+  }
 }
 
 // Giải phóng Reference List: duyệt qua từng ObjectNode trong objList, chỉ giải phóng từng ObjectNode (không giải phóng object bên trong)
 void freeReferenceList(ObjectNode *objList) {
-  // TODO
+  ObjectNode* current = objList;
+  while (current != NULL) {
+    ObjectNode* next = current->next;
+    free(current);
+    current = next;
+  }
 }
 
 // Thêm Object vào Object List: tạo ObjectNode mới, gán object và next=NULL. Nếu objList rỗng, gán objList là node mới. Ngược lại, duyệt đến cuối objList và thêm node mới vào cuối
@@ -164,7 +287,14 @@ void addObject(ObjectNode **objList, Object* obj) {
 
 // Tìm kiếm Object trong Object List theo tên: duyệt qua objList, so sánh tên. Nếu tìm thấy, trả về con trỏ đến Object; nếu không tìm thấy, trả về NULL
 Object* findObject(ObjectNode *objList, char *name) {
-  // TODO
+  ObjectNode* current = objList;
+  while (current != NULL) {
+    if (strcmp(current->object->name, name) == 0) {
+      return current->object;
+    }
+    current = current->next;
+  }
+  return NULL;
 }
 
 /******************* others: quản lý trạng thái toàn cục của symbol table (khởi tạo, vào/ra, phạm vi, khai báo) ******************************/
