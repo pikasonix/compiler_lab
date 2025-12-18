@@ -60,8 +60,7 @@ void compileBlock(void) {
     do {
       eat(TK_IDENT);
       // Gọi checkFreshIdent để kiểm tra xem identifier const có mới trong block hiện tại không
-      // TODO: Check if a constant identifier is fresh in the block
-
+      checkFreshIdent(currentToken->string);
       // Create a constant object
       constObj = createConstantObject(currentToken->string);
       
@@ -90,7 +89,7 @@ void compileBlock2(void) {
     do {
       eat(TK_IDENT);
       // Gọi checkFreshIdent để kiểm tra xem identifier type có mới trong block hiện tại không
-      // TODO: Check if a type identifier is fresh in the block
+      checkFreshIdent(currentToken->string);
 
       // create a type object
       typeObj = createTypeObject(currentToken->string);
@@ -120,7 +119,7 @@ void compileBlock3(void) {
     do {
       eat(TK_IDENT);
       // Gọi checkFreshIdent để kiểm tra xem identifier variable có mới trong block hiện tại không
-      // TODO: Check if a variable identifier is fresh in the block
+      checkFreshIdent(currentToken->string);
 
       // Create a variable object      
       varObj = createVariableObject(currentToken->string);
@@ -166,7 +165,7 @@ void compileFuncDecl(void) {
   eat(KW_FUNCTION);
   eat(TK_IDENT);
   // Gọi checkFreshIdent để kiểm tra xem identifier function có mới trong block hiện tại không
-  // TODO: Check if a function identifier is fresh in the block
+  checkFreshIdent(currentToken->string);
 
   // create the function object
   funcObj = createFunctionObject(currentToken->string);
@@ -224,8 +223,8 @@ ConstantValue* compileUnsignedConstant(void) {
   case TK_IDENT:
     eat(TK_IDENT);
     // Gọi checkDeclaredConstant để kiểm tra xem identifier constant đã được khai báo chưa và lấy giá trị của nó
-    // TODO: check if the constant identifier is declared and get its value
-
+    obj = checkDeclaredConstant(currentToken->string);
+    constValue = obj->constAttrs->value;
     break;
   case TK_CHAR:
     eat(TK_CHAR);
@@ -274,7 +273,8 @@ ConstantValue* compileConstant2(void) {
   case TK_IDENT:
     eat(TK_IDENT);
     // Gọi checkDeclaredConstant để kiểm tra xem identifier constant đã được khai báo chưa và lấy giá trị của nó
-    // TODO: check if the integer constant identifier is declared and get its value
+    obj = checkDeclaredConstant(currentToken->string);
+    constValue = duplicateConstantValue(obj->constAttrs->value);
     break;
   default:
     error(ERR_INVALID_CONSTANT, lookAhead->lineNo, lookAhead->colNo);
@@ -313,7 +313,8 @@ Type* compileType(void) {
   case TK_IDENT:
     eat(TK_IDENT);
     // Gọi checkDeclaredType để kiểm tra xem identifier type đã được khai báo chưa và lấy kiểu thực của nó
-    // TODO: check if the type idntifier is declared and get its actual type
+    obj = checkDeclaredType(currentToken->string);
+    type = duplicateType(obj->typeAttrs->actualType);
     break;
   default:
     error(ERR_INVALID_TYPE, lookAhead->lineNo, lookAhead->colNo);
@@ -373,7 +374,7 @@ void compileParam(void) {
 
   eat(TK_IDENT);
   // Gọi checkFreshIdent để kiểm tra xem identifier parameter có mới trong block hiện tại không
-  // TODO: check if the parameter identifier is fresh in the block
+  checkFreshIdent(currentToken->string);
   param = createParameterObject(currentToken->string, paramKind, symtab->currentScope->owner);
   eat(SB_COLON);
   type = compileBasicType();
@@ -441,7 +442,7 @@ void compileCallSt(void) {
   eat(KW_CALL);
   eat(TK_IDENT);
   // Gọi checkDeclaredProcedure để kiểm tra xem identifier procedure đã được khai báo chưa
-  // TODO: check if the identifier is a declared procedure
+  checkDeclaredProcedure(currentToken->string);
   compileArguments();
 }
 
@@ -477,8 +478,7 @@ void compileForSt(void) {
   eat(TK_IDENT);
 
   // Gọi checkDeclaredVariable để kiểm tra xem identifier variable đã được khai báo chưa
-  // TODO: check if the identifier is a variable
-
+  checkDeclaredVariable(currentToken->string);
   eat(SB_ASSIGN);
   compileExpression();
 

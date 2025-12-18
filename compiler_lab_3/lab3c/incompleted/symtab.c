@@ -69,7 +69,12 @@ void freeType(Type* type) {
     break;
   case TP_ARRAY:
     freeType(type->elementType);
-    freeType(type);
+    /* Lỗi test 4,5,6: Giải thích // TODO 
+      Do array type có thể lồng nhau, nên cần giải phóng đệ quy elementType trước khi giải phóng chính nó
+      Do đó phần cuối chỉ có free(type) thôi
+    */
+    // freeType(type);
+    free(type);
     break;
   }
 }
