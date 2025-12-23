@@ -410,24 +410,59 @@ void compileStatement(void) {
 }
 
 Type* compileLValue(void) {
-  // TODO: parse a lvalue (a variable, an array element, a parameter, the current function identifier)
+  // parse a lvalue (a variable, an array element, a parameter, the current function identifier)
+  /*
+    Trả về kiểu của lvalue:
+      - Biến: kiểu của biến
+      - Phần tử mảng: kiểu phần tử sau khi xử lý các chỉ số
+      - Tham số: kiểu của tham số
+      - Hàm: kiểu trả về của hàm (sau khi xử lý các đối số nếu có)
+    VD:
+      a: Integer;
+      b: array[10] of Char;
+      function F(): Integer;
+      
+      a          -> kiểu Integer
+      b[5]       -> kiểu Char
+      F()        -> kiểu Integer
+  */
   Object* var;
   Type* varType;
 
   eat(TK_IDENT);
-  // check if the identifier is a function identifier, or a variable identifier, or a parameter  
+  // Kiểm tra TK_IDENT có được khai báo là biến, tham số, hàm hợp lệ không  
+  // -> trả về kiểu phần tử của mảng/kiểu biến/kiểu trả về của function
   var = checkDeclaredLValueIdent(currentToken->string);
   if (var->kind == OBJ_VARIABLE)
-    compileIndexes();
-
+    varType = compileIndexes(var->varAttrs->type);
+  else if (var->kind == OBJ_PARAMETER)
+    varType = var->paramAttrs->type;
+  else if (var->kind == OBJ_FUNCTION)
+    varType = var->funcAttrs->returnType;
+  else 
+    error(ERR_INVALID_LVALUE,currentToken->lineNo, currentToken->colNo);
   return varType;
 }
 
 void compileAssignSt(void) {
-  // TODO: parse the assignment and check type consistency
-  compileLValue();
+  // parse the assignment and check type consistency
+  /*
+    Kiểm tra kiểu của lvalue và biểu thức phải khớp nhau
+    VD: a: Integer;
+        b: Char;
+        a := 5;      (OK)
+        b := 'c';    (OK)
+        a := 'c';    (ERROR)
+        b := 10;     (ERROR)
+  */
+  Type* lvalueType;
+  Type* exprType;
+
+  lvalueType = compileLValue();
   eat(SB_ASSIGN);
-  compileExpression();
+  exprType = compileExpression();
+
+  checkTypeEquality(lvalueType, exprType);
 }
 
 void compileCallSt(void) {
@@ -469,39 +504,72 @@ void compileWhileSt(void) {
 }
 
 void compileForSt(void) {
-  // TODO: Check type consistency of FOR's variable
+  // Check type consistency of FOR's variable
+  // For i := 1 To 10 Do -> i, 1, và 10 phải cùng kiểu Int
+  Type* varType;
+  Type* exp1Type;
+  Type* exp2Type;
+
   eat(KW_FOR);
   eat(TK_IDENT);
 
   // check if the identifier is a variable
-  checkDeclaredVariable(currentToken->string);
+  varType = checkDeclaredVariable(currentToken->string)->varAttrs->type;
 
   eat(SB_ASSIGN);
-  compileExpression();
+  exp1Type = compileExpression();
+  checkTypeEquality(varType, exp1Type);
 
   eat(KW_TO);
-  compileExpression();
+  exp2Type = compileExpression();
+  checkTypeEquality(varType, exp2Type);
 
   eat(KW_DO);
   compileStatement();
 }
 
+/*  # compileArguments & compileArgument
+
+    Tham trị (PARAM_VALUE): Có thể truyền biểu thức: F(x+1)
+    Tham biến (PARAM_REFERENCE): Phải truyền biến: Swap(a, b) (không được Swap(5, b))
+    Kiểm tra kiểu của đối số và tham số phải khớp
+  */
+
 void compileArgument(Object* param) {
-  // TODO: parse an argument, and check type consistency
+  // parse an argument, and check type consistency
   //       If the corresponding parameter is a reference, the argument must be a lvalue
-  compileExpression();
+  Type* argType;
+  if (param->paramAttrs->kind == PARAM_REFERENCE) {
+    argType = compileLValue();
+  } else {
+    argType = compileExpression();
+  }
+  checkTypeEquality(param->paramAttrs->type, argType);
 }
 
 void compileArguments(ObjectNode* paramList) {
-  //TODO: parse a list of arguments, check the consistency of the arguments and the given parameters
+  //parse a list of arguments, check the consistency of the arguments and the given parameters
+  /*
+    Duyệt danh sách tham số và đối số song song
+    Kiểm tra số lượng và kiểu của từng cặp tham số, đối số
+    Báo lỗi nếu số lượng không khớp
+  */
+  ObjectNode* paramNode = paramList;
   switch (lookAhead->tokenType) {
   case SB_LPAR:
     eat(SB_LPAR);
-    compileArgument();
+
+    if (paramNode == NULL)
+      error(ERR_PARAMETERS_ARGUMENTS_INCONSISTENCY, lookAhead->lineNo, lookAhead->colNo);
+    compileArgument(paramNode->object);
+    paramNode = paramNode->next;
 
     while (lookAhead->tokenType == SB_COMMA) {
       eat(SB_COMMA);
-      compileArgument();
+      if (paramNode == NULL)
+        error(ERR_PARAMETERS_ARGUMENTS_INCONSISTENCY, lookAhead->lineNo, lookAhead->colNo);
+      compileArgument(paramNode->object);
+      paramNode = paramNode->next;
     }
     
     eat(SB_RPAR);
@@ -526,6 +594,9 @@ void compileArguments(ObjectNode* paramList) {
   case KW_END:
   case KW_ELSE:
   case KW_THEN:
+  // TODO kiểm tra phần gây lỗi ở đây
+    if (paramNode != NULL)
+      error(ERR_PARAMETERS_ARGUMENTS_INCONSISTENCY, lookAhead->lineNo, lookAhead->colNo);
     break;
   default:
     error(ERR_INVALID_ARGUMENTS, lookAhead->lineNo, lookAhead->colNo);
@@ -533,8 +604,16 @@ void compileArguments(ObjectNode* paramList) {
 }
 
 void compileCondition(void) {
-  // TODO: check the type consistency of LHS and RSH, check the basic type
-  compileExpression();
+  // parse the condition and check the type consistency of LHS and RSH, check the basic type
+  /*
+    2 vế là kiểu cơ bản (Int hoặc Char)
+    2 vế cùng kiểu
+  */
+  Type* leftType;
+  Type* rightType;
+
+  leftType = compileExpression();
+  checkBasicType(leftType);
 
   switch (lookAhead->tokenType) {
   case SB_EQ:
@@ -559,7 +638,9 @@ void compileCondition(void) {
     error(ERR_INVALID_COMPARATOR, lookAhead->lineNo, lookAhead->colNo);
   }
 
-  compileExpression();
+  rightType = compileExpression();
+  checkBasicType(rightType);
+  checkTypeEquality(leftType, rightType);
 }
 
 Type* compileExpression(void) {
@@ -639,21 +720,28 @@ Type* compileExpression3(void) {
     break;
   default:
     error(ERR_INVALID_EXPRESSION, lookAhead->lineNo, lookAhead->colNo);
+    return NULL;
   }
 }
 
 Type* compileTerm(void) {
-  // TODO: check type of Term2
+  // parse a term and return the term's type
+  // Phép nhân/chia chỉ áp dụng cho số nguyên: 5 * 3 (OK), 'a' * 'b' (ERROR)
   Type* type;
 
   type = compileFactor();
+  if (lookAhead->tokenType == SB_TIMES || lookAhead->tokenType == SB_SLASH) {
+    checkIntType(type);
+    compileTerm2();
+    return makeIntType();
+  }
   compileTerm2();
 
   return type;
 }
 
 void compileTerm2(void) {
-  // TODO: check type of term2
+  // parse a term and return the term's type
   Type* type;
 
   switch (lookAhead->tokenType) {
@@ -694,17 +782,28 @@ void compileTerm2(void) {
 }
 
 Type* compileFactor(void) {
-  // TODO: parse a factor and return the factor's type
-
+  // parse a factor and return the factor's type
+  /*
+    Trả về kiểu của factor:
+      - TK_NUMBER: kiểu Int
+      - TK_CHAR: kiểu Char
+      - TK_IDENT:
+          + OBJ_CONSTANT: kiểu của hằng số
+          + OBJ_VARIABLE: kiểu của biến (sau khi xử lý các chỉ số nếu có)
+          + OBJ_PARAMETER: kiểu của tham số
+          + OBJ_FUNCTION: kiểu trả về của hàm (sau khi xử lý các đối số nếu có)
+  */
   Object* obj;
   Type* type;
 
   switch (lookAhead->tokenType) {
   case TK_NUMBER:
     eat(TK_NUMBER);
+    type = makeIntType();
     break;
   case TK_CHAR:
     eat(TK_CHAR);
+    type = makeCharType();
     break;
   case TK_IDENT:
     eat(TK_IDENT);
@@ -713,14 +812,17 @@ Type* compileFactor(void) {
 
     switch (obj->kind) {
     case OBJ_CONSTANT:
+      type = (obj->constAttrs->value->type == TP_INT) ? makeIntType() : makeCharType(); 
       break;
     case OBJ_VARIABLE:
-      compileIndexes();
+      type = compileIndexes(obj->varAttrs->type);
       break;
     case OBJ_PARAMETER:
+      type = obj->paramAttrs->type;
       break;
     case OBJ_FUNCTION:
-      compileArguments();
+      compileArguments(obj->funcAttrs->paramList);
+      type = obj->funcAttrs->returnType;
       break;
     default: 
       error(ERR_INVALID_FACTOR,currentToken->lineNo, currentToken->colNo);
@@ -735,12 +837,28 @@ Type* compileFactor(void) {
 }
 
 Type* compileIndexes(Type* arrayType) {
-  // TODO: parse a sequence of indexes, check the consistency to the arrayType, and return the element type
+  // parse a sequence of indexes, check the consistency to the arrayType, and return the element type
+  /*
+    Mỗi chỉ số phải là biểu thức kiểu Int
+    Kiểu của arrayType phải là mảng
+    Trả về kiểu phần tử sau khi xử lý hết các chỉ số
+    VD: a: array[10] of array[20] of Integer
+          a[5]      -> kiểu array[20] of Integer
+          a[5][10]  -> kiểu Integer
+  */
+
+  Type* type = arrayType;
+  Type* indexType;
   while (lookAhead->tokenType == SB_LSEL) {
+    if (type->typeClass != TP_ARRAY)
+      error(ERR_TYPE_INCONSISTENCY,currentToken->lineNo, currentToken->colNo);
     eat(SB_LSEL);
-    compileExpression();
+    indexType = compileExpression();
+    checkIntType(indexType);
     eat(SB_RSEL);
+    type = type->elementType;
   }
+  return type;
 }
 
 int compile(char *fileName) {

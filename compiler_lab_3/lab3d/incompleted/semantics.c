@@ -111,28 +111,32 @@ Object* checkDeclaredLValueIdent(char* name) {
 
 // Kiểm tra có phải là kiểu Integer không
 void checkIntType(Type* type) {
-  // TODO
-
+  if (type->typeClass != TP_INT)
+    error(ERR_TYPE_INCONSISTENCY,currentToken->lineNo, currentToken->colNo);   
 }
 
 // Kiểm tra có phải là kiểu Char không
 void checkCharType(Type* type) {
-  // TODO
+  if (type->typeClass != TP_CHAR)
+    error(ERR_TYPE_INCONSISTENCY,currentToken->lineNo, currentToken->colNo);
 }
 
 // Kiểm tra có phải là kiểu cơ bản (Int hoặc Char) không
 void checkBasicType(Type* type) {
-  // TODO
+  if (type->typeClass != TP_INT && type->typeClass != TP_CHAR)
+    error(ERR_TYPE_INCONSISTENCY,currentToken->lineNo, currentToken->colNo);
 }
 
 // Kiểm tra có phải là kiểu mảng không
 void checkArrayType(Type* type) {
-  // TODO
+  if (type->typeClass != TP_ARRAY)
+    error(ERR_TYPE_INCONSISTENCY,currentToken->lineNo, currentToken->colNo);
 }
 
 // Kiểm tra hai kiểu có bằng nhau không
 void checkTypeEquality(Type* type1, Type* type2) {
-  // TODO
+  if (type1->typeClass != type2->typeClass)
+    error(ERR_TYPE_INCONSISTENCY,currentToken->lineNo, currentToken->colNo);
 }
 
 
