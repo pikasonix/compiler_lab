@@ -1,0 +1,14 @@
+(* ERROR TEST: Wrong parameter count *)
+Program Test3LitRef;
+
+Var a : Integer;
+
+Procedure Increment(Var x: Integer);
+Begin
+  x := x + 1;
+End;
+
+Begin
+  a := 5;
+  Call Increment;  (* ERROR: no argument but 1 parameter expected *)
+End.

@@ -1,0 +1,20 @@
+(* ERROR TEST: Wrong argument type for reference parameter *)
+Program Test2ExprRef;
+
+Var 
+  a : Integer;
+  b : Char;
+
+Procedure Swap(Var x: Integer; Var y: Integer);
+Var temp : Integer;
+Begin
+  temp := x;
+  x := y;
+  y := temp;
+End;
+
+Begin
+  a := 5;
+  b := 'c';
+  Call Swap(a, b);  (* ERROR: second argument is Char but parameter is Integer *)
+End.

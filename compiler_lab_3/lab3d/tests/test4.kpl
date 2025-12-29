@@ -1,0 +1,16 @@
+(* ERROR TEST: Too few arguments *)
+Program TestTooFewArgs;
+
+Var 
+  x : Integer;
+  y : Integer;
+
+Function Add(a: Integer; b: Integer) : Integer;
+Begin
+  Add := a + b;
+End;
+
+Begin
+  x := 5;
+  x := Add(x);  (* ERROR: 1 argument for 2 parameters *)
+End.

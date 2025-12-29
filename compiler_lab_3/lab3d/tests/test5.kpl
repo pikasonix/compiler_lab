@@ -1,0 +1,18 @@
+(* ERROR TEST: Too many arguments *)
+Program TestTooManyArgs;
+
+Var 
+  x : Integer;
+  y : Integer;
+  z : Integer;
+
+Function Add(a: Integer; b: Integer) : Integer;
+Begin
+  Add := a + b;
+End;
+
+Begin
+  x := 5;
+  z := 10;
+  z := Add(x, z, 15);  (* ERROR: 3 arguments for 2 parameters *)
+End.

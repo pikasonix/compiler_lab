@@ -1,0 +1,13 @@
+(* ERROR TEST: Arguments provided when none expected *)
+Program Test1NoArgs;
+
+Var x : Integer;
+
+Function GetTen : Integer;
+Begin
+  GetTen := 10;
+End;
+
+Begin
+  x := GetTen(5);  (* ERROR: function expects no arguments but 1 provided *)
+End.

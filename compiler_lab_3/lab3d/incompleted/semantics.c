@@ -91,6 +91,8 @@ Object* checkDeclaredProcedure(char* name) {
 
 Object* checkDeclaredLValueIdent(char* name) {
   Object* obj = lookupObject(name);
+  Scope* scope;
+
   if (obj == NULL)
     error(ERR_UNDECLARED_IDENT,currentToken->lineNo, currentToken->colNo);
 
@@ -99,7 +101,12 @@ Object* checkDeclaredLValueIdent(char* name) {
   case OBJ_PARAMETER:
     break;
   case OBJ_FUNCTION:
-    if (obj != symtab->currentScope->owner) 
+    // Function chỉ có thể được gán giá trị bên trong chính nó
+    scope = symtab->currentScope;
+    while ((scope != NULL) && (scope != obj->funcAttrs->scope))
+      scope = scope->outer;
+
+    if (scope == NULL)
       error(ERR_INVALID_IDENT,currentToken->lineNo, currentToken->colNo);
     break;
   default:
@@ -111,31 +118,39 @@ Object* checkDeclaredLValueIdent(char* name) {
 
 // Kiểm tra có phải là kiểu Integer không
 void checkIntType(Type* type) {
-  if (type->typeClass != TP_INT)
+  if ((type != NULL) && (type->typeClass == TP_INT))
+    return;
+  else
     error(ERR_TYPE_INCONSISTENCY,currentToken->lineNo, currentToken->colNo);   
 }
 
 // Kiểm tra có phải là kiểu Char không
 void checkCharType(Type* type) {
-  if (type->typeClass != TP_CHAR)
+  if ((type != NULL) && (type->typeClass == TP_CHAR))
+    return;
+  else
     error(ERR_TYPE_INCONSISTENCY,currentToken->lineNo, currentToken->colNo);
 }
 
 // Kiểm tra có phải là kiểu cơ bản (Int hoặc Char) không
 void checkBasicType(Type* type) {
-  if (type->typeClass != TP_INT && type->typeClass != TP_CHAR)
+  if ((type != NULL) && ((type->typeClass == TP_INT) || (type->typeClass == TP_CHAR)))
+    return;
+  else
     error(ERR_TYPE_INCONSISTENCY,currentToken->lineNo, currentToken->colNo);
 }
 
 // Kiểm tra có phải là kiểu mảng không
 void checkArrayType(Type* type) {
-  if (type->typeClass != TP_ARRAY)
+  if ((type != NULL) && (type->typeClass == TP_ARRAY))
+    return;
+  else
     error(ERR_TYPE_INCONSISTENCY,currentToken->lineNo, currentToken->colNo);
 }
 
 // Kiểm tra hai kiểu có bằng nhau không
 void checkTypeEquality(Type* type1, Type* type2) {
-  if (type1->typeClass != type2->typeClass)
+  if (compareType(type1, type2) == 0)
     error(ERR_TYPE_INCONSISTENCY,currentToken->lineNo, currentToken->colNo);
 }
 
