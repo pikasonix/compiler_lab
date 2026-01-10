@@ -21,17 +21,6 @@ CodeBlock* codeBlock;
 
 void genVariableAddress(Object* var) {
   // TODO
-  int level = 0;
-  Scope* scope = symtab->currentScope;
-  // đếm dần scope của var
-  while (scope != NULL && scope != VARIABLE_SCOPE(var)) {
-    level++;
-    scope = scope->outer;
-  }
-  // offset var
-  int offset = VARIABLE_OFFSET(var);
-  // gen LA
-  genLA(level, offset);
 }
 
 void genVariableValue(Object* var) {
