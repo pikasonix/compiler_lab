@@ -19,12 +19,39 @@ extern Object* writelnProcedure;
 
 CodeBlock* codeBlock;
 
+int computeLevel(Scope* fromScope, Scope* toScope) {
+  int level = 0;
+  Scope* scope = fromScope;
+  while (scope != NULL && scope != toScope) {
+    level++;
+    scope = scope->outer;
+  }
+  return level;
+}
+
 void genVariableAddress(Object* var) {
-  // TODO
+  int level = 0;
+  Scope* scope = symtab->currentScope;
+  // đếm dần scope của var
+  while (scope != NULL && scope != VARIABLE_SCOPE(var)) {
+    level++;
+    scope = scope->outer;
+  }
+  // offset var
+  int offset = VARIABLE_OFFSET(var);
+  // gen LA
+  genLA(level, offset);
 }
 
 void genVariableValue(Object* var) {
-  // TODO
+  int level = 0;
+  Scope* scope = symtab->currentScope;
+  while (scope != NULL && scope != VARIABLE_SCOPE(var)) {
+    level++;
+    scope = scope->outer;
+  }
+  int offset = VARIABLE_OFFSET(var);
+  genLV(level, offset);
 }
 
 int isPredefinedFunction(Object* func) {

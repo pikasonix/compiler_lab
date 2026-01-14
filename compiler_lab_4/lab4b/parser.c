@@ -412,7 +412,7 @@ Type* compileLValue(void) {
 
   switch (var->kind) {
   case OBJ_VARIABLE:
-    // TODO: push the variable address onto the stack
+    genVariableAddress(var);
 
     if (var->varAttrs->type->typeClass == TP_ARRAY) {
       // compute the element address
@@ -439,7 +439,6 @@ Type* compileLValue(void) {
 }
 
 void compileAssignSt(void) {
-  // TODO: Generate code for the assignment
   Type* varType;
   Type* expType;
 
@@ -448,6 +447,8 @@ void compileAssignSt(void) {
   eat(SB_ASSIGN);
   expType = compileExpression();
   checkTypeEquality(varType, expType);
+  
+  genST();
 }
 
 void compileCallSt(void) {
@@ -476,45 +477,82 @@ void compileGroupSt(void) {
 }
 
 void compileIfSt(void) {
-  // TODO: generate code for if-statement
+  Instruction* fjInst;
+  Instruction* jInst;
 
   eat(KW_IF);
   compileCondition();
+  fjInst = genFJ(DC_VALUE);
   eat(KW_THEN);
   compileStatement();
   if (lookAhead->tokenType == KW_ELSE) {
+    jInst = genJ(DC_VALUE);
+    updateFJ(fjInst, getCurrentCodeAddress());
     eat(KW_ELSE);
     compileStatement();
-  } 
+    updateJ(jInst, getCurrentCodeAddress());
+  } else {
+    updateFJ(fjInst, getCurrentCodeAddress());
+  }
 }
 
 void compileWhileSt(void) {
-  // TODO: generate code for while statement
+  CodeAddress beginWhile;
+  Instruction* fjInst;
+
+  beginWhile = getCurrentCodeAddress();
   eat(KW_WHILE);
   compileCondition();
+  fjInst = genFJ(DC_VALUE);
   eat(KW_DO);
   compileStatement();
+  genJ(beginWhile);
+  updateFJ(fjInst, getCurrentCodeAddress());
 }
 
 void compileForSt(void) {
-  // TODO: generate code for for-statement
   Type* varType;
   Type *type;
+  CodeAddress checkAddress;
+  Instruction* fjInst;
 
   eat(KW_FOR);
 
   varType = compileLValue();
+  genCV();
+  
   eat(SB_ASSIGN);
 
   type = compileExpression();
   checkTypeEquality(varType, type);
+  genST();
+  
+  genCV();
+  genLI();
+  checkAddress = getCurrentCodeAddress();
   eat(KW_TO);
 
   type = compileExpression();
   checkTypeEquality(varType, type);
+  
+  genLE();
+  fjInst = genFJ(DC_VALUE);
 
   eat(KW_DO);
   compileStatement();
+  
+  genCV();
+  genCV();
+  genLI();
+  genLC(1);
+  genAD();
+  genST();
+  genCV();
+  genLI();
+  genJ(checkAddress);
+  
+  updateFJ(fjInst, getCurrentCodeAddress());
+  genDCT(1);
 }
 
 void compileArgument(Object* param) {
@@ -580,7 +618,6 @@ void compileArguments(ObjectNode* paramList) {
 }
 
 void compileCondition(void) {
-  // TODO: generate code for condition
   Type* type1;
   Type* type2;
   TokenType op;
@@ -614,10 +651,30 @@ void compileCondition(void) {
 
   type2 = compileExpression();
   checkTypeEquality(type1,type2);
+  
+  switch (op) {
+  case SB_EQ:
+    genEQ();
+    break;
+  case SB_NEQ:
+    genNE();
+    break;
+  case SB_LE:
+    genLE();
+    break;
+  case SB_LT:
+    genLT();
+    break;
+  case SB_GE:
+    genGE();
+    break;
+  case SB_GT:
+    genGT();
+    break;
+  }
 }
 
 Type* compileExpression(void) {
-  // TODO: generate code for expression
   Type* type;
   
   switch (lookAhead->tokenType) {
@@ -630,6 +687,7 @@ Type* compileExpression(void) {
     eat(SB_MINUS);
     type = compileExpression2();
     checkIntType(type);
+    genNEG();
     break;
   default:
     type = compileExpression2();
@@ -648,7 +706,6 @@ Type* compileExpression2(void) {
 
 
 Type* compileExpression3(Type* argType1) {
-  // TODO: generate code for expression3
   Type* argType2;
   Type* resultType;
 
@@ -658,6 +715,7 @@ Type* compileExpression3(Type* argType1) {
     checkIntType(argType1);
     argType2 = compileTerm();
     checkIntType(argType2);
+    genAD();
 
     resultType = compileExpression3(argType1);
     break;
@@ -666,6 +724,7 @@ Type* compileExpression3(Type* argType1) {
     checkIntType(argType1);
     argType2 = compileTerm();
     checkIntType(argType2);
+    genSB();
 
     resultType = compileExpression3(argType1);
     break;
@@ -702,7 +761,6 @@ Type* compileTerm(void) {
 }
 
 Type* compileTerm2(Type* argType1) {
-  // TODO: generate code for term2
   Type* argType2;
   Type* resultType;
 
@@ -712,6 +770,7 @@ Type* compileTerm2(Type* argType1) {
     checkIntType(argType1);
     argType2 = compileFactor();
     checkIntType(argType2);
+    genML();
 
     resultType = compileTerm2(argType1);
     break;
@@ -720,6 +779,7 @@ Type* compileTerm2(Type* argType1) {
     checkIntType(argType1);
     argType2 = compileFactor();
     checkIntType(argType2);
+    genDV();
 
     resultType = compileTerm2(argType1);
     break;
@@ -750,17 +810,18 @@ Type* compileTerm2(Type* argType1) {
 }
 
 Type* compileFactor(void) {
-  // TODO: generate code for factor
   Type* type;
   Object* obj;
 
   switch (lookAhead->tokenType) {
   case TK_NUMBER:
     eat(TK_NUMBER);
+    genLC(currentToken->value);
     type = intType;
     break;
   case TK_CHAR:
     eat(TK_CHAR);
+    genLC(currentToken->string[0]);
     type = charType;
     break;
   case TK_IDENT:
@@ -771,9 +832,11 @@ Type* compileFactor(void) {
     case OBJ_CONSTANT:
       switch (obj->constAttrs->value->type) {
       case TP_INT:
+	genLC(obj->constAttrs->value->intValue);
 	type = intType;
 	break;
       case TP_CHAR:
+	genLC(obj->constAttrs->value->charValue);
 	type = charType;
 	break;
       default:
@@ -782,10 +845,11 @@ Type* compileFactor(void) {
       break;
     case OBJ_VARIABLE:
       if (obj->varAttrs->type->typeClass == TP_ARRAY) {
-	// TEMPORARY: halt
+	genVariableAddress(obj);
 	type = compileIndexes(obj->varAttrs->type);
-	genHL();
+	genLI();
       } else {
+	genVariableValue(obj);
 	type = obj->varAttrs->type;
       }
       break;
