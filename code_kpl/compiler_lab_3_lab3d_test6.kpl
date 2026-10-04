@@ -1,0 +1,17 @@
+(* ERROR TEST: Wrong type in arguments *)
+Program TestWrongType;
+
+Var 
+  x : Integer;
+  a : Char;
+
+Function Process(num: Integer; ch: Char) : Integer;
+Begin
+  Process := num;
+End;
+
+Begin
+  x := 5;
+  a := 'a';
+  x := Process(a, x);  (* ERROR: wrong argument types *)
+End.

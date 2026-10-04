@@ -1,0 +1,62 @@
+(* VALID TEST: Correct argument usage *)
+Program TestValidArgs;
+
+Var 
+  x : Integer;
+  y : Integer;
+  z : Integer;
+  a : Char;
+  b : Char;
+
+Function Add(n1: Integer; n2: Integer) : Integer;
+Begin
+  Add := n1 + n2;
+End;
+
+Function MixType(num: Integer; ch: Char) : Integer;
+Begin
+  MixType := num;
+End;
+
+Procedure Swap(Var x1: Integer; Var x2: Integer);
+Var temp : Integer;
+Begin
+  temp := x1;
+  x1 := x2;
+  x2 := temp;
+End;
+
+Procedure ProcessValue(val: Integer);
+Begin
+  Call WriteI(val);
+End;
+
+Function NoParam : Integer;
+Begin
+  NoParam := 42;
+End;
+
+Begin
+  x := 5;
+  y := 10;
+  a := 'a';
+  
+  (* Test correct number and types *)
+  z := Add(x, y);
+  z := Add(5, 10);
+  z := Add(x + 1, y - 2);
+  
+  (* Test mixed types *)
+  z := MixType(x, a);
+  z := MixType(10, 'c');
+  
+  (* Test reference parameters with lvalues *)
+  Call Swap(x, y);
+  
+  (* Test value parameters with expressions *)
+  Call ProcessValue(x + 5);
+  Call ProcessValue(10);
+  
+  (* Test no parameters *)
+  z := NoParam;
+End.
